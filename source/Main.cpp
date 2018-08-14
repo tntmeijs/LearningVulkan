@@ -1,7 +1,6 @@
-#include <iostream>
+#include <Windows.h>
 
-int main()
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    std::cout << "Hello, world!" << std::endl;
-    std::cin.get();
+	return 0;
 }
