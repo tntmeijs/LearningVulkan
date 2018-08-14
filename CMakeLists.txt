@@ -8,6 +8,6 @@ set(SOURCE_FILES
 # set(HEADER_FILES
 #     headers/LearningVulkan/WinWindow.hpp)
 
-add_executable(LearningVulkan ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(LearningVulkan WIN32 ${SOURCE_FILES} ${HEADER_FILES})
 
 target_include_directories(LearningVulkan PRIVATE headers)
