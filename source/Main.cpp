@@ -1,4 +1,5 @@
 #include <Windows.h>
+#include "LearningVulkan/Renderer.hpp"
 
 LRESULT CALLBACK windowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg)
@@ -44,6 +45,12 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
 	MSG msg;
 	bool done = false;
+
+	RECT rect;
+	GetClientRect(windowHandle, &rect);
+
+	Renderer vulkanRenderer;
+	vulkanRenderer.initialize(rect.right, rect.bottom);
 
 	while (!done)
 	{
