@@ -20,13 +20,13 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+int main()
 {
 	WNDCLASSEX windowClass = {};
 	windowClass.cbSize = sizeof(WNDCLASSEX);
 	windowClass.style = CS_OWNDC | CS_VREDRAW | CS_HREDRAW;
 	windowClass.lpfnWndProc = windowProc;
-	windowClass.hInstance = hInstance;
+	windowClass.hInstance = GetModuleHandle(0);
 	windowClass.lpszClassName = "LearningVulkan";
 
 	RegisterClassEx(&windowClass);
@@ -40,7 +40,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 		720,
 		NULL,
 		NULL,
-		hInstance,
+		GetModuleHandle(0),
 		NULL);
 
 	MSG msg;
@@ -69,5 +69,5 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 		RedrawWindow(windowHandle, NULL, NULL, RDW_INTERNALPAINT);
 	}
 
-	return msg.wParam;
+	return 0;
 }

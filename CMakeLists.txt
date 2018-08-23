@@ -16,7 +16,7 @@ add_definitions(-std=c++11)
 
 find_package(Vulkan REQUIRED)
 
-add_executable(LearningVulkan WIN32 ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(LearningVulkan ${SOURCE_FILES} ${HEADER_FILES})
 target_include_directories(LearningVulkan PRIVATE headers)
 
 target_link_libraries(LearningVulkan Vulkan::Vulkan)
