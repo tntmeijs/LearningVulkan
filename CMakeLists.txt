@@ -18,5 +18,6 @@ find_package(Vulkan REQUIRED)
 
 add_executable(LearningVulkan ${SOURCE_FILES} ${HEADER_FILES})
 target_include_directories(LearningVulkan PRIVATE headers)
+target_compile_definitions(LearningVulkan PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 
 target_link_libraries(LearningVulkan Vulkan::Vulkan)

@@ -2,11 +2,13 @@
 #include "LearningVulkan/Utility.hpp"
 
 #include "vulkan/vulkan.hpp"
+#include <Windows.h>
 
-// Functions that are not loaded by default
+// Extensions
 PFN_vkCreateDebugReportCallbackEXT fpVkCreateDebugReportCallbackEXT = nullptr;
 PFN_vkDestroyDebugReportCallbackEXT fpVkDestroyDebugReportCallbackEXT = nullptr;
 PFN_vkDebugReportMessageEXT fpVkDebugReportMessageEXT = nullptr;
+PFN_vkCreateWin32SurfaceKHR fpVkCreateWin32SurfaceKHR = nullptr;
 
 // Callback for the debug report extension
 VKAPI_ATTR VkBool32 VKAPI_CALL debugReportCallback(
@@ -37,7 +39,7 @@ Renderer::~Renderer()
 	vkDestroyInstance(context.instance, nullptr);
 }
 
-void Renderer::initialize(uint32_t width, uint32_t height)
+void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 {
 	// General information about this application
 	VkApplicationInfo applicationInfo = {};
@@ -142,6 +144,20 @@ void Renderer::initialize(uint32_t width, uint32_t height)
 	Utility::checkVulkanResult(
 		result,
 		"Failed to create the debug report extension callback.");
+
+	// Create a Windows surface
+	VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
+	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	surfaceCreateInfo.hinstance = GetModuleHandle(0);
+	surfaceCreateInfo.hwnd = windowHandle;
+
+	result = vkCreateWin32SurfaceKHR(
+		context.instance,
+		&surfaceCreateInfo,
+		nullptr,
+		&context.surface);
+
+	Utility::checkVulkanResult(result, "Failed to create a Windows surface.");
 }
 
 void Renderer::loadExtensions()
@@ -159,7 +175,12 @@ void Renderer::loadExtensions()
 	functionPointer = nullptr;
 
 	functionPointer = vkGetInstanceProcAddr(context.instance, "vkDebugReportMessageEXT");
-	assert(functionPointer != nullptr, "Failed to load the \" vkDebugReportMessageEXT\" extension.");
+	assert(functionPointer != nullptr, "Failed to load the \"vkDebugReportMessageEXT\" extension.");
 	fpVkDebugReportMessageEXT = reinterpret_cast<PFN_vkDebugReportMessageEXT>(functionPointer);
+	functionPointer = nullptr;
+
+	functionPointer = vkGetInstanceProcAddr(context.instance, "vkCreateWin32SurfaceKHR");
+	assert(functionPointer != nullptr, "Failed to load the \"vkCreateWin32SurfaceKHR\" extension.");
+	fpVkCreateWin32SurfaceKHR = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(functionPointer);
 	functionPointer = nullptr;
 }

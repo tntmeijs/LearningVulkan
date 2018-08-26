@@ -50,7 +50,7 @@ int main()
 	GetClientRect(windowHandle, &rect);
 
 	Renderer vulkanRenderer;
-	vulkanRenderer.initialize(rect.right, rect.bottom);
+	vulkanRenderer.initialize(rect.right, rect.bottom, windowHandle);
 
 	while (!done)
 	{
