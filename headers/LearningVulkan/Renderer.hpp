@@ -8,11 +8,13 @@ struct VulkanContext
 {
 	uint32_t width;
 	uint32_t height;
+	uint32_t presentQueueIndex;
 
 	VkInstance instance;
-
+	VkPhysicalDevice physicalDevice;
+	VkDevice device;
+	VkPhysicalDeviceProperties physicalDeviceProperties;
 	VkSurfaceKHR surface;
-
 	VkDebugReportCallbackEXT debugCallback;
 };
 

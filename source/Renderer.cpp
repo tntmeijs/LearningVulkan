@@ -158,6 +158,104 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 		&context.surface);
 
 	Utility::checkVulkanResult(result, "Failed to create a Windows surface.");
+
+	// Find a suitable physical device (for now, just use the first one that
+	// supports rendering)
+	uint32_t physicalDeviceCount = 0;
+	vkEnumeratePhysicalDevices(context.instance, &physicalDeviceCount, nullptr);
+
+	assert(physicalDeviceCount != 0,
+		"Failed to find any physical devices on this machine.");
+
+	VkPhysicalDevice *physicalDevices = new VkPhysicalDevice[physicalDeviceCount];
+	vkEnumeratePhysicalDevices(context.instance, &physicalDeviceCount, physicalDevices);
+	
+	for (uint32_t i = 0; i < physicalDeviceCount; ++i)
+	{
+		// Get the properties of this physical device
+		VkPhysicalDeviceProperties physicalDeviceProperties = {};
+		vkGetPhysicalDeviceProperties(
+			physicalDevices[i],
+			&physicalDeviceProperties);
+
+		uint32_t queueFamilyCount = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(
+			physicalDevices[i],
+			&queueFamilyCount,
+			nullptr);
+
+		VkQueueFamilyProperties *queueFamilyProperties = new VkQueueFamilyProperties[queueFamilyCount];
+		vkGetPhysicalDeviceQueueFamilyProperties(
+			physicalDevices[i],
+			&queueFamilyCount,
+			queueFamilyProperties);
+
+		// Check whether at least one of the queue families supports presenting
+		for (uint32_t j = 0; j < queueFamilyCount; ++j)
+		{
+			VkBool32 supportsPresent = false;
+			vkGetPhysicalDeviceSurfaceSupportKHR(
+				physicalDevices[i],
+				j,
+				context.surface,
+				&supportsPresent);
+
+			if (supportsPresent &&
+				(queueFamilyProperties[j].queueFlags & VK_QUEUE_GRAPHICS_BIT))
+			{
+				context.physicalDevice = physicalDevices[i];
+				context.physicalDeviceProperties = physicalDeviceProperties;
+				context.presentQueueIndex = j;
+				break;
+			}
+		}
+
+		delete[] queueFamilyProperties;
+
+		// A physical device has already been found, no need to loop again
+		if (context.physicalDevice)
+			break;
+	}
+
+	delete[] physicalDevices;
+
+	assert(context.physicalDevice,
+		"Failed to detect any physical device that can render and present.");
+
+	// Information for accessing one of the rendering queues of this device
+	VkDeviceQueueCreateInfo queueCreateInfo = {};
+	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	queueCreateInfo.queueFamilyIndex = context.presentQueueIndex;
+	queueCreateInfo.queueCount = 1;
+	float queuePriorities[] = { 1.0f };	// Ask for the highest priority (0 to 1)
+	queueCreateInfo.pQueuePriorities = queuePriorities;
+
+	// Logical device information
+	VkDeviceCreateInfo deviceCreateInfo = {};
+	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	deviceCreateInfo.queueCreateInfoCount = 1;
+	deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+	deviceCreateInfo.enabledLayerCount = 1;
+	deviceCreateInfo.ppEnabledLayerNames = layers;
+
+	// Swap chain extension is required
+	const char *deviceExtensions[] = { "VK_KHR_swapchain" };
+	deviceCreateInfo.enabledExtensionCount = 1;
+	deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions;
+
+	VkPhysicalDeviceFeatures physicalDeviceFeatures = {};
+	physicalDeviceFeatures.shaderClipDistance = VK_TRUE;
+
+	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
+
+	// Create the logical device
+	result = vkCreateDevice(
+		context.physicalDevice,
+		&deviceCreateInfo,
+		nullptr,
+		&context.device);
+
+	Utility::checkVulkanResult(result, "Failed to create a logical device.");
 }
 
 void Renderer::loadExtensions()
