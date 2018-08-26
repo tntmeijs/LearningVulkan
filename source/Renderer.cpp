@@ -63,7 +63,8 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 	uint32_t layerCount = 0;
 	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
-	assert(layerCount != 0, "Failed to find any validation layers on this system.");
+	assert(layerCount != 0,
+		"Failed to find any validation layers on this system.");
 
 	VkLayerProperties *availableLayers = new VkLayerProperties[layerCount];
 	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
@@ -72,13 +73,15 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 	for (uint32_t i = 0; i < layerCount; ++i)
 	{
 		// Look for the LunarG validation layer
-		if (strcmp(availableLayers[i].layerName, "VK_LAYER_LUNARG_standard_validation") == 0)
+		if (strcmp(availableLayers[i].layerName,
+			"VK_LAYER_LUNARG_standard_validation") == 0)
 		{
 			foundValidationLayer = true;
 		}
 	}
 
-	assert(foundValidationLayer, "Failed to find the \"VK_LAYER_LUNARG_standard_validation\" validation layer.");
+	assert(foundValidationLayer,
+		"Failed to find the \"VK_LAYER_LUNARG_standard_validation\"validation layer.");
 
 	const char *layers[] = { "VK_LAYER_LUNARG_standard_validation" };
 
@@ -96,7 +99,12 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions);
 	
 	// Extensions that are needed for this application
-	const char *extensions[] = { "VK_KHR_surface", "VK_KHR_win32_surface", "VK_EXT_debug_report" };
+	const char *extensions[] =
+	{
+		"VK_KHR_surface",
+		"VK_KHR_win32_surface",
+		"VK_EXT_debug_report"
+	};
 	const uint32_t requiredNumberOfExtensions = sizeof(extensions) / sizeof(char *);
 	uint32_t numberOfExtensionsFound = 0;
 
@@ -110,7 +118,8 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 		}
 	}
 	
-	assert(numberOfExtensionsFound == requiredNumberOfExtensions, "Failed to find all required extensions.");
+	assert(numberOfExtensionsFound == requiredNumberOfExtensions,
+		"Failed to find all required extensions.");
 
 	delete[] availableExtensions;
 
@@ -168,7 +177,10 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 		"Failed to find any physical devices on this machine.");
 
 	VkPhysicalDevice *physicalDevices = new VkPhysicalDevice[physicalDeviceCount];
-	vkEnumeratePhysicalDevices(context.instance, &physicalDeviceCount, physicalDevices);
+	vkEnumeratePhysicalDevices(
+		context.instance,
+		&physicalDeviceCount,
+		physicalDevices);
 	
 	for (uint32_t i = 0; i < physicalDeviceCount; ++i)
 	{
@@ -262,23 +274,35 @@ void Renderer::loadExtensions()
 {
 	PFN_vkVoidFunction functionPointer = nullptr;
 	
-	functionPointer = vkGetInstanceProcAddr(context.instance, "vkCreateDebugReportCallbackEXT");
-	assert(functionPointer != nullptr, "Failed to load the \"vkCreateDebugReportCallbackEXT\" extension.");
+	functionPointer = vkGetInstanceProcAddr(
+		context.instance,
+		"vkCreateDebugReportCallbackEXT");
+	assert(functionPointer != nullptr,
+		"Failed to load the \"vkCreateDebugReportCallbackEXT\" extension.");
 	fpVkCreateDebugReportCallbackEXT = reinterpret_cast<PFN_vkCreateDebugReportCallbackEXT>(functionPointer);
 	functionPointer = nullptr;
 
-	functionPointer = vkGetInstanceProcAddr(context.instance, "vkDestroyDebugReportCallbackEXT");
-	assert(functionPointer != nullptr, "Failed to load the \"vkDestroyDebugReportCallbackEXT\" extension.");
+	functionPointer = vkGetInstanceProcAddr(
+		context.instance,
+		"vkDestroyDebugReportCallbackEXT");
+	assert(functionPointer != nullptr,
+		"Failed to load the \"vkDestroyDebugReportCallbackEXT\" extension.");
 	fpVkDestroyDebugReportCallbackEXT = reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>(functionPointer);
 	functionPointer = nullptr;
 
-	functionPointer = vkGetInstanceProcAddr(context.instance, "vkDebugReportMessageEXT");
-	assert(functionPointer != nullptr, "Failed to load the \"vkDebugReportMessageEXT\" extension.");
+	functionPointer = vkGetInstanceProcAddr(
+		context.instance,
+		"vkDebugReportMessageEXT");
+	assert(functionPointer != nullptr,
+		"Failed to load the \"vkDebugReportMessageEXT\" extension.");
 	fpVkDebugReportMessageEXT = reinterpret_cast<PFN_vkDebugReportMessageEXT>(functionPointer);
 	functionPointer = nullptr;
 
-	functionPointer = vkGetInstanceProcAddr(context.instance, "vkCreateWin32SurfaceKHR");
-	assert(functionPointer != nullptr, "Failed to load the \"vkCreateWin32SurfaceKHR\" extension.");
+	functionPointer = vkGetInstanceProcAddr(
+		context.instance,
+		"vkCreateWin32SurfaceKHR");
+	assert(functionPointer != nullptr,
+		"Failed to load the \"vkCreateWin32SurfaceKHR\" extension.");
 	fpVkCreateWin32SurfaceKHR = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(functionPointer);
 	functionPointer = nullptr;
 }
