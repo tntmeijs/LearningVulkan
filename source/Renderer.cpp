@@ -41,6 +41,10 @@ Renderer::~Renderer()
 
 void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 {
+	// Save the width and height for later use
+	context.width = width;
+	context.height = height;
+
 	// General information about this application
 	VkApplicationInfo applicationInfo = {};
 	applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -268,6 +272,151 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 		&context.device);
 
 	Utility::checkVulkanResult(result, "Failed to create a logical device.");
+
+	// Set the color format and color space for the swap chain (created down below)
+	uint32_t colorFormatCount = 0;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(
+		context.physicalDevice,
+		context.surface,
+		&colorFormatCount,
+		nullptr);
+
+	assert(colorFormatCount != 0, "Failed to find any color formats.");
+
+	VkSurfaceFormatKHR *surfaceFormats = new VkSurfaceFormatKHR[colorFormatCount];
+	vkGetPhysicalDeviceSurfaceFormatsKHR(
+		context.physicalDevice,
+		context.surface,
+		&colorFormatCount,
+		surfaceFormats);
+
+	VkFormat surfaceColorFormat;
+	VkColorSpaceKHR surfaceColorSpace;
+
+	// If the array of formats only contain one entry of VK_FORMAT_UNDEFINED,
+	// it means that the surface has no preferred formats
+	if (colorFormatCount == 0 &&
+		surfaceFormats[0].format == VK_FORMAT_UNDEFINED)
+	{
+		// Use this as the default format
+		surfaceColorFormat = VK_FORMAT_R8G8B8A8_UNORM;
+	}
+	else
+	{
+		// Use whatever format the surface prefers
+		surfaceColorFormat = surfaceFormats[0].format;
+	}
+
+	// Use the first available color space
+	surfaceColorSpace = surfaceFormats[0].colorSpace;
+
+	delete[] surfaceFormats;
+
+	VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+		context.physicalDevice,
+		context.surface,
+		&surfaceCapabilities);
+
+	// If surfaceCapabilities.maxImageCount == 0, then there is no limit on the
+	// number of images (no idea why you would ever need 4+ images, though...)
+	uint32_t desiredImageCount = 2;	// Double-buffering
+	
+	// Adjust the desired image count if the current value is not supported
+	if (desiredImageCount < surfaceCapabilities.minImageCount)
+	{
+		// Cannot use less than the minimum number of images supported
+		desiredImageCount = surfaceCapabilities.minImageCount;
+	}
+	else if (surfaceCapabilities.maxImageCount != 0 &&
+			 desiredImageCount > surfaceCapabilities.maxImageCount)
+	{
+		// Cannot use more than the maximum number of images supported
+		desiredImageCount = surfaceCapabilities.maxImageCount;
+	}
+
+	// If surfaceCapabilities.currentExtent has -1 for either the width or
+	// height, it means that the values can be set to any value. Otherwise,
+	// those non-zero values will have to be matched exactly.
+	VkExtent2D surfaceResolution = surfaceCapabilities.currentExtent;
+
+	if (surfaceResolution.width == -1 ||
+		surfaceResolution.height == -1)
+	{
+		surfaceResolution.width = context.width;
+		surfaceResolution.height = context.height;
+	}
+	else
+	{
+		// Surface resolution has to be matched exactly therefore, the
+		// dimensions of the context have to be updated
+		context.width = surfaceResolution.width;
+		context.height = surfaceResolution.height;
+	}
+
+	VkSurfaceTransformFlagBitsKHR preTransform = surfaceCapabilities.currentTransform;
+
+	// No surface rotation
+	if (surfaceCapabilities.supportedTransforms &
+		VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
+	{
+		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	}
+
+	// Get the supported present modes
+	uint32_t presentModeCount = 0;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(
+		context.physicalDevice,
+		context.surface,
+		&presentModeCount,
+		nullptr);
+
+	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModeCount];
+	vkGetPhysicalDeviceSurfacePresentModesKHR(
+		context.physicalDevice,
+		context.surface,
+		&presentModeCount,
+		presentModes);
+
+	// This is the default value that MUST be supported according to the Vulkan
+	// specification
+	VkPresentModeKHR presentationMode = VK_PRESENT_MODE_FIFO_KHR;
+
+	// VK_PRESENT_MODE_MAILBOX_KHR is preferred, so use that if it is supported
+	for (uint32_t i = 0; i < presentModeCount; ++i)
+	{
+		if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+		{
+			presentationMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			break;
+		}
+	}
+	
+	delete[] presentModes;
+
+	// Create the swap chain
+	VkSwapchainCreateInfoKHR swapChainCreateInfo = {};
+	swapChainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapChainCreateInfo.surface = context.surface;
+	swapChainCreateInfo.minImageCount = desiredImageCount;
+	swapChainCreateInfo.imageFormat = surfaceColorFormat;
+	swapChainCreateInfo.imageColorSpace = surfaceColorSpace;
+	swapChainCreateInfo.imageExtent = surfaceResolution;
+	swapChainCreateInfo.imageArrayLayers = 1;
+	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapChainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	swapChainCreateInfo.preTransform = preTransform;
+	swapChainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapChainCreateInfo.presentMode = presentationMode;
+	swapChainCreateInfo.clipped = VK_TRUE;
+
+	result = vkCreateSwapchainKHR(
+		context.device,
+		&swapChainCreateInfo,
+		nullptr,
+		&context.swapChain);
+
+	Utility::checkVulkanResult(result, "Failed to create the swap chain.");
 }
 
 void Renderer::loadExtensions()

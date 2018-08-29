@@ -15,6 +15,7 @@ struct VulkanContext
 	VkDevice device;
 	VkPhysicalDeviceProperties physicalDeviceProperties;
 	VkSurfaceKHR surface;
+	VkSwapchainKHR swapChain;
 	VkDebugReportCallbackEXT debugCallback;
 };
 
