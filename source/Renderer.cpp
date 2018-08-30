@@ -31,6 +31,8 @@ Renderer::Renderer()
 
 Renderer::~Renderer()
 {
+	delete[] context.presentImages;
+	
 	fpVkDestroyDebugReportCallbackEXT(
 		context.instance,
 		context.debugCallback,
@@ -114,9 +116,9 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 
 	for (uint32_t i = 0; i < extensionCount; ++i)
 	{
-		for (uint32_t j = 0; j < requiredNumberOfExtensions; ++j)
+		for (auto & extension : extensions)
 		// Found one of the required extensions
-		if (strcmp(availableExtensions[i].extensionName, extensions[j]) == 0)
+		if (strcmp(availableExtensions[i].extensionName, extension) == 0)
 		{
 			++numberOfExtensionsFound;
 		}
@@ -161,7 +163,7 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 	// Create a Windows surface
 	VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
 	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-	surfaceCreateInfo.hinstance = GetModuleHandle(0);
+	surfaceCreateInfo.hinstance = GetModuleHandle(nullptr);
 	surfaceCreateInfo.hwnd = windowHandle;
 
 	result = vkCreateWin32SurfaceKHR(
@@ -417,6 +419,227 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 		&context.swapChain);
 
 	Utility::checkVulkanResult(result, "Failed to create the swap chain.");
+
+	// Get a handle to the present queue of this device
+	vkGetDeviceQueue(
+		context.device,
+		context.presentQueueIndex,
+		0,
+		&context.presentQueue);
+
+	VkCommandPoolCreateInfo commandPoolCreateInfo = {};
+	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	commandPoolCreateInfo.queueFamilyIndex = context.presentQueueIndex;
+
+	// Create the command pool (used to allocate command buffers)
+	VkCommandPool commandPool;
+	result = vkCreateCommandPool(
+		context.device,
+		&commandPoolCreateInfo,
+		nullptr,
+		&commandPool);
+
+	Utility::checkVulkanResult(result, "Failed to create the command pool.");
+
+	VkCommandBufferAllocateInfo commandBufferAllocationInfo = {};
+	commandBufferAllocationInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	commandBufferAllocationInfo.commandPool = commandPool;
+	commandBufferAllocationInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	commandBufferAllocationInfo.commandBufferCount = 1;
+
+	// Create the setup command buffer
+	result = vkAllocateCommandBuffers(
+		context.device,
+		&commandBufferAllocationInfo,
+		&context.setupCommandBuffer);
+
+	Utility::checkVulkanResult(
+		result,
+		"Failed to allocate the setup command buffer.");
+
+	// Create the draw command buffer
+	result = vkAllocateCommandBuffers(
+		context.device,
+		&commandBufferAllocationInfo,
+		&context.drawCommandBuffer);
+
+	Utility::checkVulkanResult(
+		result,
+		"Failed to allocate the draw command buffer");
+
+	// Retrieve the swap chain images and store them for later use
+	uint32_t imageCount = 0;
+	vkGetSwapchainImagesKHR(
+		context.device,
+		context.swapChain,
+		&imageCount,
+		nullptr);
+
+	context.presentImages = new VkImage[imageCount];
+	vkGetSwapchainImagesKHR(
+		context.device,
+		context.swapChain,
+		&imageCount,
+		context.presentImages);
+
+	VkImageViewCreateInfo presentImagesViewCreateInfo = {};
+	presentImagesViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	presentImagesViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	presentImagesViewCreateInfo.format = surfaceColorFormat;
+	presentImagesViewCreateInfo.components =
+	{
+		VK_COMPONENT_SWIZZLE_R,
+		VK_COMPONENT_SWIZZLE_G,
+		VK_COMPONENT_SWIZZLE_B,
+		VK_COMPONENT_SWIZZLE_A
+	};
+	presentImagesViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	presentImagesViewCreateInfo.subresourceRange.baseMipLevel = 0;
+	presentImagesViewCreateInfo.subresourceRange.levelCount = 1;
+	presentImagesViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+	presentImagesViewCreateInfo.subresourceRange.layerCount = 1;
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	VkFenceCreateInfo fenceCreateInfo = {};
+	fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+
+	VkFence submitFence;
+	vkCreateFence(context.device, &fenceCreateInfo, nullptr, &submitFence);
+
+	// Loop through the present images and change their layout
+	auto *transitionedImages = new bool[imageCount];
+	memset(transitionedImages, 0, sizeof(bool) * imageCount);
+	uint32_t processedImageCount = 0;
+
+	while (processedImageCount != imageCount)
+	{
+		VkSemaphore presentCompleteSemaphore;
+
+		VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		semaphoreCreateInfo.pNext = nullptr;
+		semaphoreCreateInfo.flags = 0;
+
+		vkCreateSemaphore(
+			context.device,
+			&semaphoreCreateInfo,
+			nullptr,
+			&presentCompleteSemaphore);
+
+		uint32_t nextImageIndex = 0;
+		vkAcquireNextImageKHR(
+			context.device,
+			context.swapChain,
+			UINT64_MAX,
+			presentCompleteSemaphore,
+			VK_NULL_HANDLE,
+			&nextImageIndex);
+
+		// Only try to transition the image if it has not been transitioned yet
+		if (!transitionedImages[nextImageIndex])
+		{
+			// Start recording in the setup command buffer
+			vkBeginCommandBuffer(context.setupCommandBuffer, &beginInfo);
+
+			VkImageSubresourceRange resourceRange = {};
+			resourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			resourceRange.baseMipLevel = 0;
+			resourceRange.levelCount = 1;
+			resourceRange.baseArrayLayer = 0;
+			resourceRange.layerCount = 0;
+
+			VkImageMemoryBarrier layoutTransitionBarrier = {};
+			layoutTransitionBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+			layoutTransitionBarrier.srcAccessMask = 0;
+			layoutTransitionBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+			layoutTransitionBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			layoutTransitionBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			layoutTransitionBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			layoutTransitionBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			layoutTransitionBarrier.image = context.presentImages[nextImageIndex];
+			layoutTransitionBarrier.subresourceRange = resourceRange;
+
+			// Apply the image layout transition barrier
+			vkCmdPipelineBarrier(
+				context.setupCommandBuffer,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				0,
+				0, nullptr,
+				0, nullptr,
+				1, &layoutTransitionBarrier);
+
+			// Finished writing to this command buffer
+			vkEndCommandBuffer(context.setupCommandBuffer);
+
+			VkPipelineStageFlags waitStageMask[] =
+			{
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+			};
+
+			VkSubmitInfo submitInfo = {};
+			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+			submitInfo.waitSemaphoreCount = 1;
+			submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
+			submitInfo.pWaitDstStageMask = waitStageMask;
+			submitInfo.commandBufferCount = 1;
+			submitInfo.pCommandBuffers = &context.setupCommandBuffer;
+			submitInfo.signalSemaphoreCount = 0;
+			submitInfo.pSignalSemaphores = nullptr;
+
+			// Submit the commands to the setup queue
+			result = vkQueueSubmit(
+				context.presentQueue,
+				1,
+				&submitInfo,
+				submitFence);
+
+			Utility::checkVulkanResult(
+				result,
+				"Failed to submit present queue.");
+
+			// Wait for the commands to finish
+			vkWaitForFences(context.device, 1, &submitFence, VK_TRUE, UINT64_MAX);
+			vkResetFences(context.device, 1, &submitFence);
+
+			vkDestroySemaphore(context.device, presentCompleteSemaphore, nullptr);
+
+			vkResetCommandBuffer(context.setupCommandBuffer, 0);
+
+			transitionedImages[nextImageIndex] = true;
+			++processedImageCount;
+		}
+
+		VkPresentInfoKHR presentInfo = {};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.waitSemaphoreCount = 0;
+		presentInfo.pWaitSemaphores = nullptr;
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = &context.swapChain;
+		presentInfo.pImageIndices = &nextImageIndex;
+		
+		vkQueuePresentKHR(context.presentQueue, &presentInfo);
+	}
+
+	delete[] transitionedImages;
+
+	auto *presentImageViews = new VkImageView[imageCount];
+	for (uint32_t i = 0; i < imageCount; ++i)
+	{
+		presentImagesViewCreateInfo.image = context.presentImages[i];
+
+		result = vkCreateImageView(
+			context.device,
+			&presentImagesViewCreateInfo,
+			nullptr,
+			&presentImageViews[i]);
+
+		Utility::checkVulkanResult(result, "Failed to create an image view.");
+	}
 }
 
 void Renderer::loadExtensions()

@@ -11,11 +11,20 @@ struct VulkanContext
 	uint32_t presentQueueIndex;
 
 	VkInstance instance;
-	VkPhysicalDevice physicalDevice;
+
 	VkDevice device;
+	VkPhysicalDevice physicalDevice;
 	VkPhysicalDeviceProperties physicalDeviceProperties;
+	VkImage *presentImages;
+	
+	VkQueue presentQueue;
+	
+	VkCommandBuffer setupCommandBuffer;
+	VkCommandBuffer drawCommandBuffer;
+	
 	VkSurfaceKHR surface;
 	VkSwapchainKHR swapChain;
+	
 	VkDebugReportCallbackEXT debugCallback;
 };
 
