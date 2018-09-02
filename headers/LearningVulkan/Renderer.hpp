@@ -15,7 +15,10 @@ struct VulkanContext
 	VkDevice device;
 	VkPhysicalDevice physicalDevice;
 	VkPhysicalDeviceProperties physicalDeviceProperties;
+	VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
 	VkImage *presentImages;
+	VkImage depthImage;
+	VkImageView depthImageView;
 	
 	VkQueue presentQueue;
 	
