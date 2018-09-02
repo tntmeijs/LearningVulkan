@@ -642,6 +642,32 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 	}
 }
 
+void Renderer::render()
+{
+	uint32_t nextImageIndex = 0;
+
+	// Get the next available image ID from the swapchain
+	vkAcquireNextImageKHR(
+		context.device,
+		context.swapChain,
+		UINT64_MAX,
+		VK_NULL_HANDLE,
+		VK_NULL_HANDLE,
+		&nextImageIndex);
+
+	VkPresentInfoKHR presentInfo = {};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.pNext = nullptr;
+	presentInfo.waitSemaphoreCount = 0;
+	presentInfo.pWaitSemaphores = nullptr;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &context.swapChain;
+	presentInfo.pImageIndices = &nextImageIndex;
+	presentInfo.pResults = nullptr;
+
+	vkQueuePresentKHR(context.presentQueue, &presentInfo);
+}
+
 void Renderer::loadExtensions()
 {
 	PFN_vkVoidFunction functionPointer = nullptr;

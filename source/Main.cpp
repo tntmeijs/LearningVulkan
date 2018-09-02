@@ -1,12 +1,20 @@
 #include <Windows.h>
 #include "LearningVulkan/Renderer.hpp"
 
+bool shouldRender = false;
+
 LRESULT CALLBACK windowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg)
 	{
 	case WM_CLOSE:
 	{
 		PostQuitMessage(0);
+		break;
+	}
+
+	case WM_PAINT:
+	{
+		shouldRender = true;
 		break;
 	}
 
@@ -26,7 +34,7 @@ int main()
 	windowClass.cbSize = sizeof(WNDCLASSEX);
 	windowClass.style = CS_OWNDC | CS_VREDRAW | CS_HREDRAW;
 	windowClass.lpfnWndProc = windowProc;
-	windowClass.hInstance = GetModuleHandle(0);
+	windowClass.hInstance = GetModuleHandle(nullptr);
 	windowClass.lpszClassName = "LearningVulkan";
 
 	RegisterClassEx(&windowClass);
@@ -38,10 +46,10 @@ int main()
 		CW_USEDEFAULT,
 		1280,
 		720,
-		NULL,
-		NULL,
-		GetModuleHandle(0),
-		NULL);
+		nullptr,
+		nullptr,
+		GetModuleHandle(nullptr),
+		nullptr);
 
 	MSG msg;
 	bool done = false;
@@ -54,7 +62,7 @@ int main()
 
 	while (!done)
 	{
-		PeekMessage(&msg, NULL, NULL, NULL, PM_REMOVE);
+		PeekMessage(&msg, nullptr, NULL, NULL, PM_REMOVE);
 
 		if (msg.message == WM_QUIT)
 		{
@@ -66,7 +74,13 @@ int main()
 			DispatchMessage(&msg);
 		}
 
-		RedrawWindow(windowHandle, NULL, NULL, RDW_INTERNALPAINT);
+		if (shouldRender)
+		{
+			vulkanRenderer.render();
+			shouldRender = false;
+		}
+
+		RedrawWindow(windowHandle, nullptr, nullptr, RDW_INTERNALPAINT);
 	}
 
 	return 0;
