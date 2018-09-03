@@ -20,6 +20,9 @@ struct VulkanContext
 	VkImage depthImage;
 	VkImageView depthImageView;
 	
+	VkFramebuffer *framebuffers;
+	VkRenderPass renderPass;
+
 	VkQueue presentQueue;
 	
 	VkCommandBuffer setupCommandBuffer;

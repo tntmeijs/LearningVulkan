@@ -32,6 +32,7 @@ Renderer::Renderer()
 
 Renderer::~Renderer()
 {
+	delete[] context.framebuffers;
 	delete[] context.presentImages;
 	
 	fpVkDestroyDebugReportCallbackEXT(
@@ -815,7 +816,81 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 		Utility::checkVulkanResult(result, "Failed to create depth image view.");
 	}
 
-	// http://jhenriques.net/development.html#tutorial_012
+	VkAttachmentDescription passAttachments[2] = {};
+	passAttachments[0].format = surfaceColorFormat;
+	passAttachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+	passAttachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	passAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	passAttachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	passAttachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	passAttachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	passAttachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	passAttachments[1].format = VK_FORMAT_D16_UNORM;
+	passAttachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+	passAttachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	passAttachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	passAttachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	passAttachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	passAttachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	passAttachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference colorAttachmentReference = {};
+	colorAttachmentReference.attachment = 0;
+	colorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depthAttachmentReference = {};
+	depthAttachmentReference.attachment = 1;
+	depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorAttachmentReference;
+	subpass.pDepthStencilAttachment = &depthAttachmentReference;
+
+	VkRenderPassCreateInfo renderPassCreateInfo = {};
+	renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassCreateInfo.attachmentCount = 2;
+	renderPassCreateInfo.pAttachments = passAttachments;
+	renderPassCreateInfo.subpassCount = 1;
+	renderPassCreateInfo.pSubpasses = &subpass;
+
+	result = vkCreateRenderPass(
+		context.device,
+		&renderPassCreateInfo,
+		nullptr,
+		&context.renderPass);
+
+	Utility::checkVulkanResult(result, "Failed to create render pass.");
+
+	// Create the frame buffers that are compatible with this render pass
+	VkImageView frameBufferAttachments[2];
+	frameBufferAttachments[1] = context.depthImageView;
+
+	VkFramebufferCreateInfo framebufferCreateInfo = {};
+	framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferCreateInfo.renderPass = context.renderPass;
+	framebufferCreateInfo.attachmentCount = 2;
+	framebufferCreateInfo.pAttachments = frameBufferAttachments;
+	framebufferCreateInfo.width = context.width;
+	framebufferCreateInfo.height = context.height;
+	framebufferCreateInfo.layers = 1;
+
+	// Create one framebuffer per swap chain image view
+	context.framebuffers = new VkFramebuffer[imageCount];
+	for (uint32_t i = 0; i < imageCount; ++i)
+	{
+		frameBufferAttachments[0] = presentImageViews[i];
+		
+		result = vkCreateFramebuffer(
+			context.device,
+			&framebufferCreateInfo,
+			nullptr,
+			&context.framebuffers[i]);
+
+		Utility::checkVulkanResult(result, "Failed to create framebuffer.");
+	}
 }
 
 void Renderer::render()
