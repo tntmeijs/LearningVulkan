@@ -891,6 +891,80 @@ void Renderer::initialize(uint32_t width, uint32_t height, HWND windowHandle)
 
 		Utility::checkVulkanResult(result, "Failed to create framebuffer.");
 	}
+
+	// Create a vertex buffer for the triangle
+	VkBufferCreateInfo vertexInputBufferInfo = {};
+	vertexInputBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	vertexInputBufferInfo.size = sizeof(Vertex) * 3;
+	vertexInputBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	vertexInputBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	result = vkCreateBuffer(
+		context.device,
+		&vertexInputBufferInfo,
+		nullptr,
+		&context.vertexInputBuffer);
+
+	Utility::checkVulkanResult(result, "Failed to create vertex input buffer.");
+
+	// Allocate the vertex input buffer
+	VkMemoryRequirements vertexBufferMemoryRequirements = {};
+	vkGetBufferMemoryRequirements(
+		context.device,
+		context.vertexInputBuffer,
+		&vertexBufferMemoryRequirements);
+
+	VkMemoryAllocateInfo bufferAllocateInfo = {};
+	bufferAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	bufferAllocateInfo.allocationSize = vertexBufferMemoryRequirements.size;
+
+	uint32_t vertexMemoryTypeBits = vertexBufferMemoryRequirements.memoryTypeBits;
+	
+	VkMemoryPropertyFlags vertexDesiredMemoryFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+	for (uint32_t i = 0; i < 32; ++i)
+	{
+		VkMemoryType memoryType = context.physicalDeviceMemoryProperties.memoryTypes[i];
+		if (memoryTypeBits & 1)
+		{
+			if ((memoryType.propertyFlags & vertexDesiredMemoryFlags) == vertexDesiredMemoryFlags)
+			{
+				bufferAllocateInfo.memoryTypeIndex = i;
+				break;
+			}
+		}
+
+		vertexMemoryTypeBits = vertexMemoryTypeBits >> 1;
+	}
+
+	VkDeviceMemory vertexBufferMemory;
+	result = vkAllocateMemory(
+		context.device,
+		&bufferAllocateInfo,
+		nullptr,
+		&vertexBufferMemory);
+
+	Utility::checkVulkanResult(result, "Failed to allocate vertex buffer memory.");
+
+	void *mapped = nullptr;
+	result = vkMapMemory(context.device, vertexBufferMemory, 0, VK_WHOLE_SIZE, 0, &mapped);
+	Utility::checkVulkanResult(result, "Failed to map vertex buffer memory.");
+
+	Vertex *triangle = (Vertex *)mapped;
+	Vertex vertex1 = { -1.0f, -1.0f, 0.0f };
+	Vertex vertex2 = {  1.0f, -1.0f, 0.0f };
+	Vertex vertex3 = {  0.0f,  1.0f, 0.0f };
+	triangle[0] = vertex1;
+	triangle[1] = vertex2;
+	triangle[2] = vertex3;
+
+	vkUnmapMemory(context.device, vertexBufferMemory);
+
+	result = vkBindBufferMemory(
+		context.device,
+		context.vertexInputBuffer,
+		vertexBufferMemory, 0);
+
+	Utility::checkVulkanResult(result, "Failed to bind vertex buffer memmory.");
 }
 
 void Renderer::render()

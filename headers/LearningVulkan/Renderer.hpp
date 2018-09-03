@@ -4,6 +4,11 @@
 #include <Windows.h>
 #include "vulkan/vulkan.hpp"
 
+struct Vertex
+{
+	float x, y, z;
+};
+
 struct VulkanContext
 {
 	uint32_t width;
@@ -23,6 +28,7 @@ struct VulkanContext
 	VkFramebuffer *framebuffers;
 	VkRenderPass renderPass;
 
+	VkBuffer vertexInputBuffer;
 	VkQueue presentQueue;
 	
 	VkCommandBuffer setupCommandBuffer;
